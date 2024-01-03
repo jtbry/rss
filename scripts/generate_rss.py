@@ -17,12 +17,14 @@ def parse_frontmatter(content):
     return frontmatter, body
 
 
-def create_rss_item(channel, title, link, description, pubDate):
+def create_rss_item(channel, title, link, description, pubDate, content):
     print("Creating RSS item for " + title)
     item = SubElement(channel, "item")
     SubElement(item, "title").text = title
     SubElement(item, "link").text = link
     SubElement(item, "description").text = description
+    SubElement(item, "content:encoded").text = "\n<![CDATA[%s]]>\n" % content
+    SubElement(item, "guid").text = link
 
     if isinstance(pubDate, date):
         pubDate = pubDate.strftime("%Y-%m-%d")
@@ -31,7 +33,11 @@ def create_rss_item(channel, title, link, description, pubDate):
 
 
 def generate_rss(directory, output_file):
-    root = Element("rss")
+    root_attributes = {
+        "version": "2.0", "xmlns:content": "http://purl.org/rss/1.0/modules/content/",
+        "xmlns:atom": "http://www.w3.org/2005/Atom",
+    }
+    root = Element("rss", attrib=root_attributes)
     root.set("version", "2.0")
     channel = SubElement(root, "channel")
 
@@ -39,6 +45,7 @@ def generate_rss(directory, output_file):
     SubElement(channel, "title").text = PUBLICATION_TITLE
     SubElement(channel, "link").text = GH_PAGES_URL
     SubElement(channel, "description").text = PUBLICATION_DESCRIPTION
+    SubElement(channel, "atom:link", attrib={"href": GH_PAGES_URL + output_file[2:], "rel": "self", "type": "application/rss+xml"})
 
     for filename in os.listdir(directory):
         if filename.endswith(".md"):
@@ -57,7 +64,7 @@ def generate_rss(directory, output_file):
                 description = frontmatter.get("description", html_content)
                 pubDate = frontmatter.get("date", "No Date")
 
-                create_rss_item(channel, title, link, description, pubDate)
+                create_rss_item(channel, title, link, description, pubDate, html_content)
 
     # Create directories and files if they don't exist
     os.makedirs(os.path.dirname(output_file), exist_ok=True)
